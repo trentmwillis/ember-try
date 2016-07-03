@@ -311,6 +311,58 @@ describe('tryEach', function() {
 
   });
 
+  describe('without dependency changes', function() {
+    it('succeeds when scenario\'s commands succeed', function() {
+      this.timeout(300000);
+
+      var mockedRun = generateMockRun('ember test', function() {
+        return RSVP.resolve(0);
+      });
+
+      mockery.registerMock('./run', mockedRun);
+
+      var output = [];
+      var outputFn = function(log) {
+        output.push(log);
+      };
+
+      var mockedExit = function(code) {
+        expect(code).to.equal(0, 'exits 0 when all scenarios succeed');
+      };
+
+      var TryEachTask = require('../../lib/tasks/try-each');
+      var tryEachTask = new TryEachTask({
+        ui: {writeLine: outputFn},
+        project: {root: tmpdir},
+        config: config,
+        _on: function() {},
+        _exit: mockedExit
+      });
+
+      writeJSONFile('package.json', fixturePackage);
+      fs.mkdirSync('node_modules');
+      writeJSONFile('bower.json', fixtureBower);
+
+      var scenarios = [
+        {
+          name: 'first without any dep changes'
+        },
+        {
+          name: 'second without any dep changes'
+        }
+      ];
+
+      return tryEachTask.run(scenarios, {}).then(function() {
+        expect(output).to.include('Scenario first without any dep changes: SUCCESS');
+        expect(output).to.include('Scenario second without any dep changes: SUCCESS');
+        expect(output).to.include('All 2 scenarios succeeded');
+      }).catch(function(err) {
+        console.log(err);
+        expect(true).to.equal(false, 'Assertions should run');
+      });
+    });
+  });
+
   describe('with stubbed dependency manager', function() {
     it('passes along timeout options to run', function() {
       // With stubbed dependency manager, timing out is warning for accidentally not using the stub
